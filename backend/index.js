@@ -14,13 +14,29 @@ const app = express();
 app.use(cors()); // Enable CORS for frontend access
 app.use(express.json()); // Body parser, reading data from body into req.body
 
-// --- 2. DATABASE CONNECTION (Mock) ---
-// Read DB URI from environment or fallback to local mock
-const DB_URI = process.env.DB_URI || 'mongodb://localhost:27017/hrms_db_mock';
+// --- 2. DATABASE CONNECTION (Atlas-ready) ---
+// Prefer a fully qualified MONGODB_URI (Atlas). Fall back to DB_URI or local Mongo.
+const DB_URI = process.env.MONGODB_URI || process.env.DB_URI || 'mongodb://localhost:27017/EMS_db_mock';
 
-mongoose.connect(DB_URI)
+// Recommended mongoose connection options for modern drivers
+const mongooseOptions = {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    // use maxPoolSize to control connection pool; do not use keepAlive (unsupported option)
+    maxPoolSize: 10,
+    // Uncomment and adjust poolSize if you expect many parallel connections
+    // maxPoolSize: 10,
+};
+
+mongoose.connect(DB_URI, mongooseOptions)
     .then(() => console.log('DB connection successful!'))
-    .catch(err => console.error('DB connection failed:', err.message));
+    .catch(err => {
+        console.error('DB connection failed:', err && err.message ? err.message : err);
+        // If the DB connection is critical for the app, exit with failure
+        // so deployment platforms detect the failure. For development you may
+        // want to keep the process alive and retry; modify as needed.
+        process.exit(1);
+    });
 
 // --- 3. ROUTES ---
 
